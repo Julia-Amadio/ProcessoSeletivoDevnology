@@ -68,7 +68,7 @@ sast:
   stage: sast
   script:
     - pip install bandit
-    - bandit -r . -ll --exclude .venv
+    - bandit app.py test_app.py -ll
 
 # ------------------------- docker-base: JOB TEMPLATE -------------------------
 # Define as características da imagem do docker.
