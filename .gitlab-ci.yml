@@ -7,6 +7,7 @@ image: python:3.12-slim
 stages:
   - lint
   - test
+  - sast
   - build
   - deploy
 
@@ -49,6 +50,22 @@ test:
   script:
     - pip install flask==3.0.0 pytest==7.4.3
     - pytest test_app.py -v
+
+# -----------------------------------------------------------------------------
+# STAGE: sast (Static Application Security Testing)
+# Analisa o código Python em busca de vulnerabilidades de segurança
+# conhecidas sem executar a aplicação.
+# Usa o Bandit, ferramenta padrão de SAST para Python, que detecta problemas
+# como injeção de comandos, uso de funções inseguras e más práticas
+# criptográficas.
+# -r: recursivo (analisa todos os arquivos .py da pasta)
+# -ll: reporta apenas severidade MEDIUM ou HIGH, ignorando ruído de LOW
+# -----------------------------------------------------------------------------
+sast:
+  stage: sast
+  script:
+    - pip install bandit
+    - bandit -r . -ll --exclude .venv
 
 # -----------------------------------------------------------------------------
 # STAGE: build
