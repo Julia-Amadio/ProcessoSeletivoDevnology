@@ -1,0 +1,9 @@
+services:
+  api:
+    # Builda a imagem a partir do Dockerfile na pasta atual
+    build: .
+    container_name: devnology-api
+    # Reinicia automaticamente se o container cair (útil em produção)
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
