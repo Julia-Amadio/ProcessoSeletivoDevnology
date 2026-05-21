@@ -13,7 +13,7 @@ stages:
 
 # Redireciona o cache do pip para dentro do diretório do projeto.
 # O GitLab só consegue fazer cache de caminhos dentro de $CI_PROJECT_DIR,
-# por isso não podemos usar o cache padrão do pip em /root/.cache.
+# por isso não é possível usar o cache padrão do pip em /root/.cache.
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
