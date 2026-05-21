@@ -61,7 +61,6 @@ test:
 # Usa o Bandit, ferramenta padrão de SAST para Python, que detecta problemas
 # como injeção de comandos, uso de funções inseguras e más práticas
 # criptográficas.
-# -r: recursivo (analisa todos os arquivos .py da pasta)
 # -ll: reporta apenas severidade MEDIUM ou HIGH, ignorando ruído de LOW
 # -----------------------------------------------------------------------------
 sast:
