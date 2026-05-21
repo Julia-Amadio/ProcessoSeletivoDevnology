@@ -55,6 +55,14 @@ USER appuser
 # Não abre a porta sozinho, quem faz o mapeamento real é o docker run ou compose.
 EXPOSE 5000
 
+# Verifica se o container está saudável a cada 30 segundos, enquanto ativo.
+# Se /health demora mais que 5 segundos para responder, resulta em timeout. 
+# Realiza três tentativas.
+# Caso ocorram três falhas consecutivas, o container é marcado como 'unhealthy',
+# e o orquestrador pode reiniciá-lo ou tirar ele do load balancer.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" || exit 1
+
 # Comando de execução.
 # Usamos gunicorn em vez de "python app.py" porque o servidor embutido do Flask
 # não é adequado para produção, sendo single-thread e sem tratamento de erros HTTP.
