@@ -31,4 +31,4 @@ def index():
 # 0.0.0.0 faz com que escute em todas as interfaces de rede,
 # necessário dentro de um container para que requisições externas cheguem.
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000)  # nosec B104
