@@ -1,0 +1,127 @@
+# Imagem padrão para todos os jobs que não declararem a própria.
+# Jobs que precisam do Docker sobrescrevem isso.
+image: python:3.12-slim
+
+# Declara a ordem de execução dos stages.
+# Se um stage falhar, os seguintes não executam.
+stages:
+  - lint
+  - test
+  - build
+  - deploy
+
+# Redireciona o cache do pip para dentro do diretório do projeto.
+# O GitLab só consegue fazer cache de caminhos dentro de $CI_PROJECT_DIR,
+# por isso não podemos usar o cache padrão do pip em /root/.cache.
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+# Cache compartilhado entre jobs e pipelines.
+# Na prática: o pip não baixa os pacotes do zero a cada pipeline,
+# ele reutiliza o que já está em .cache/pip.
+# key: branch garante que branches diferentes não compartilhem cache incompatível.
+# CI_COMMIT_REF_SLUG: nome da branch injetado de forma "sanitizada". Converte para
+# lowercase, encurta em 63 bytes e substitui tudo que não for a-z ou 0-9 por "-".
+cache:
+  key: "$CI_COMMIT_REF_SLUG"
+  paths:
+    - .cache/pip
+
+# -----------------------------------------------------------------------------
+# STAGE: lint
+# Verifica qualidade e estilo do código Python com flake8.
+# O job falha automaticamente se o flake8 encontrar qualquer problema,
+# impedindo que código com erros avance no pipeline.
+# -----------------------------------------------------------------------------
+lint:
+  stage: lint
+  script:
+    - pip install flake8
+    - flake8 app.py test_app.py
+
+# -----------------------------------------------------------------------------
+# STAGE: test
+# Roda os testes unitários com pytest.
+# O job falha se qualquer teste falhar.
+# -----------------------------------------------------------------------------
+test:
+  stage: test
+  script:
+    - pip install flask==3.0.0 pytest==7.4.3
+    - pytest test_app.py -v
+
+# -----------------------------------------------------------------------------
+# STAGE: build
+# Constrói a imagem Docker e faz push para o GitLab Container Registry.
+#
+# Usa Docker-in-Docker (dind): como o runner já roda dentro de um container,
+# precisamos de um serviço auxiliar para executar comandos Docker dentro dele.
+#
+# As variáveis CI_REGISTRY_* são injetadas automaticamente pelo GitLab.
+# NUNCA fazer hardcoding das credenciais no pipeline!
+# ┌─────────────────────────────────────────────────────────────┐
+# │ CI_REGISTRY          = registry.gitlab.com                  │
+# │ CI_REGISTRY_IMAGE    = registry.gitlab.com/user/projeto     │
+# │ CI_REGISTRY_USER     = usuário GitLab                       │
+# │ CI_REGISTRY_PASSWORD = token temporário gerado pelo GitLab  │
+# │ CI_COMMIT_SHORT_SHA  = hash do commit atual                 │
+# └─────────────────────────────────────────────────────────────┘
+# -----------------------------------------------------------------------------
+build:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  variables:
+    # Endereço do daemon Docker exposto pelo serviço dind
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+  script:
+    # 1. Login no registry usando as credenciais injetadas pelo GitLab.
+    #    Nunca escrever senha aqui, pois o GitLab já gera um token 
+    #    temporário válido só para esse pipeline.
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    # 2. Build da imagem. A flag -t define o nome completo com tag.
+    #    Usa o hash curto do commit como tag para rastreabilidade.
+    #    Resultado: registry.gitlab.com/user/projeto:a1b2c3d4
+    #    O ponto no final significa "use o Dockerfile desta pasta".
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA .
+    # 3. Envia a imagem taggeada com o hash para o registry.
+    #    Agora ela fica armazenada lá e pode ser puxada por qualquer
+    #    serviço que tenha acesso, inclusive o ECS no deploy.
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    # 4. Cria uma segunda tag apontando para a mesma imagem.
+    #    'latest' aponta sempre para o build mais recente da main.
+    #    registry.gitlab.com/user/projeto:latest agora aponta
+    #    para o mesmo conteúdo que :a1b2c3d4
+    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:latest
+    # 5. Envia a tag latest também.
+    - docker push $CI_REGISTRY_IMAGE:latest
+
+# -----------------------------------------------------------------------------
+# STAGE: deploy
+# Simula o deploy no Amazon ECS.
+# Em produção, esses comandos serão executados de verdade via AWS CLI.
+# O job só roda na branch main; alterações em outras branches
+# passam por lint, test e build, mas não disparam deploy.
+# -----------------------------------------------------------------------------
+deploy:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  script:
+    - echo "=== Simulação de deploy no Amazon ECS ==="
+    - echo "Imagem a ser deployada --> $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+    - echo ""
+    - echo "Em produção, os comandos seriam:"
+    - echo "  1. aws ecs update-service \\"
+    - echo "       --cluster devnology-cluster \\"
+    - echo "       --service devnology-api \\"
+    - echo "       --force-new-deployment"
+    - echo "  2. aws ecs wait services-stable \\"
+    - echo "       --cluster devnology-cluster \\"
+    - echo "       --services devnology-api"
+    - echo ""
+    - echo "=== Deploy simulado com sucesso ==="
+  environment:
+    name: production
