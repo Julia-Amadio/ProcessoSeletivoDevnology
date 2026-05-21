@@ -9,6 +9,7 @@ stages:
   - test
   - sast
   - build
+  - smoke-test
   - deploy
 
 # Redireciona o cache do pip para dentro do diretório do projeto.
@@ -27,6 +28,8 @@ cache:
   key: "$CI_COMMIT_REF_SLUG"
   paths:
     - .cache/pip
+# Obs: jobs que usam .docker-base herdam este bloco mas não executam pip,
+# então o cache não tem efeito prático neles. É inofensivo.
 
 # -----------------------------------------------------------------------------
 # STAGE: lint
@@ -67,12 +70,35 @@ sast:
     - pip install bandit
     - bandit -r . -ll --exclude .venv
 
-# -----------------------------------------------------------------------------
-# STAGE: build
-# Constrói a imagem Docker e faz push para o GitLab Container Registry.
+# ------------------------- docker-base: JOB TEMPLATE -------------------------
+# Define as características da imagem do docker.
+#
+# O ponto no início do nome diz ao GitLab para não executar ele diretamente, 
+# só usar como base. Dentro dos stages, o extends herda tudo (image, services, 
+# variables, before_script) e o job filho só declara o que é específico dele.
 #
 # Usa Docker-in-Docker (dind): como o runner já roda dentro de um container,
 # precisamos de um serviço auxiliar para executar comandos Docker dentro dele.
+# -----------------------------------------------------------------------------
+.docker-base:
+  image: docker:24
+  services:
+    - docker:24-dind
+  variables:
+    # Endereço do daemon Docker exposto pelo serviço dind
+    DOCKER_HOST: tcp://docker:2376 
+    DOCKER_TLS_CERTDIR: "/certs"
+  # O before_script é herdado por todos os jobs filhos e roda antes do script
+  # de cada um, garantindo que o login no registry ocorra automaticamente.
+  before_script:
+    # Login no registry usando as credenciais injetadas pelo GitLab.
+    # Nunca escrever senha aqui, pois o GitLab já gera um token 
+    # temporário válido só para esse pipeline.
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+# -----------------------------------------------------------------------------
+# STAGE: build
+# Constrói a imagem Docker e faz push para o GitLab Container Registry.
 #
 # As variáveis CI_REGISTRY_* são injetadas automaticamente pelo GitLab.
 # NUNCA fazer hardcoding das credenciais no pipeline!
@@ -85,35 +111,45 @@ sast:
 # └─────────────────────────────────────────────────────────────┘
 # -----------------------------------------------------------------------------
 build:
+  extends: .docker-base
   stage: build
-  image: docker:24
-  services:
-    - docker:24-dind
-  variables:
-    # Endereço do daemon Docker exposto pelo serviço dind
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_CERTDIR: "/certs"
   script:
-    # 1. Login no registry usando as credenciais injetadas pelo GitLab.
-    #    Nunca escrever senha aqui, pois o GitLab já gera um token 
-    #    temporário válido só para esse pipeline.
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    # 2. Build da imagem. A flag -t define o nome completo com tag.
+    # 1. Build da imagem. A flag -t define o nome completo com tag.
     #    Usa o hash curto do commit como tag para rastreabilidade.
     #    Resultado: registry.gitlab.com/user/projeto:a1b2c3d4
     #    O ponto no final significa "use o Dockerfile desta pasta".
     - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA .
-    # 3. Envia a imagem taggeada com o hash para o registry.
+    # 2. Envia a imagem taggeada com o hash para o registry.
     #    Agora ela fica armazenada lá e pode ser puxada por qualquer
     #    serviço que tenha acesso, inclusive o ECS no deploy.
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
-    # 4. Cria uma segunda tag apontando para a mesma imagem.
+    # 3. Cria uma segunda tag apontando para a mesma imagem.
     #    'latest' aponta sempre para o build mais recente da main.
     #    registry.gitlab.com/user/projeto:latest agora aponta
     #    para o mesmo conteúdo que :a1b2c3d4
     - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:latest
-    # 5. Envia a tag latest também.
+    # 4. Envia a tag latest também.
     - docker push $CI_REGISTRY_IMAGE:latest
+
+# -----------------------------------------------------------------------------
+# STAGE: smoke test
+# 
+# Sobe o container da imagem que acabou de buildar, espera ele inicializar,
+# chama o script de health check contra ele e, por fim, derruba o container.
+# 
+# Valida que a imagem buildada funciona de fato, não se restringindo ao código
+# compilado. Testa o artefato real.
+# -----------------------------------------------------------------------------
+smoke-test:
+  extends: .docker-base
+  stage: smoke-test  # stage próprio, depois do build
+  script:
+    - apk add --no-cache curl   # docker:24 é Alpine e curl não vem instalado
+    - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker run -d --name smoke-test -p 5000:5000 $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    - sleep 5   # heurística: tempo suficiente para o gunicorn inicializar no dind
+    - sh healthcheck.sh http://docker:5000/health
+    - docker stop smoke-test
 
 # -----------------------------------------------------------------------------
 # STAGE: deploy
