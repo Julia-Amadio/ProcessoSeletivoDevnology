@@ -1,0 +1,27 @@
+# Ambiente virtual Python
+.venv/
+
+# Arquivos de teste (não vão para a imagem de produção)
+test_app.py
+.pytest_cache/
+.coverage
+
+# Terraform (não tem nada a ver com a aplicação)
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# Git
+.git/
+.gitignore
+
+# Docker (o compose é só para desenvolvimento local)
+docker-compose.yml
+.dockerignore
+
+# Variáveis de ambiente
+.env
+
+# Documentação
+README.md
