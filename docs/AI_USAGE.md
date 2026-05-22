@@ -177,12 +177,13 @@ services:
 A variável de ambiente `FLASK_ENV=production` levantou algumas bandeiras vermelhas. 
 Não tinha visto a mesma declarada antes em qualquer outra parte do código, nem entendi 
 para quê servia. Ao pesquisar sobre a mesma pela busca padrão descobri que ela foi 
-**descontinuada** na versão 2.3 do Flask — estamos no 3.0. O que ele controlava foi 
-separado em duas variáveis menores:
+**descontinuada** na versão 2.3 do Flask — o projeto utiliza a 3.0.
+O que ele controlava foi separado em duas variáveis menores:
 - `FLASK_DEBUG=0`: desativa o modo debug (nunca deve estar ativo em produção pois 
 expõe traceback completo para o usuário);
 - `FLASK_ENV`: não faz mais nada na versão atual.
 
 O compose atual não levou o bloco `environment` junto em nenhuma de suas versões. 
 Como estamos usando gunicorn em vez do servidor embutido do Flask, e o `app.run()` só 
-executa se chamado diretamente, na prática nenhuma dessas variáveis afeta o comportamento do container.
+executa se chamado diretamente, na prática nenhuma dessas variáveis afeta o comportamento 
+do container.
