@@ -35,6 +35,42 @@ comentários e uma supressão de falso positivo do Bandit, detalhadas a seguir.
 
 ---
 
+## Fluxo completo da aplicação
+
+```mermaid
+flowchart TD
+    DEV["Desenvolvedor\ngit push → main"]
+
+    subgraph CI ["GitLab CI pipeline"]
+        LINT["lint\nflake8"]
+        TEST["test\npytest"]
+        SAST["sast\nbandit"]
+        BUILD["build\ndocker build → GitLab Registry"]
+        SMOKE["smoke-test\nsobe container → healthcheck.sh"]
+        DEPLOY["deploy\npush ECR → ecs update-service"]
+        LINT --> TEST --> SAST --> BUILD --> SMOKE --> DEPLOY
+    end
+
+    subgraph AWS ["AWS (provisionado via Terraform)"]
+        ECR["Amazon ECR\nregistry de imagens"]
+        ECS["ECS Service\nFargate · 1 task"]
+        CONTAINER["Container em execução\ngunicorn · porta 5000 · IP público"]
+        ECR -->|pull| ECS --> CONTAINER
+    end
+
+    TF["Terraform (one-time)\nprovisiona ECR, ECS cluster, IAM, SG, CloudWatch"]
+
+    TF --> AWS
+    DEV --> CI
+    DEPLOY -->|push imagem| ECR
+    DEPLOY -->|update-service| ECS
+
+    USER["Usuário\nGET :5000/health"]
+    USER --> CONTAINER
+```
+
+---
+
 ## Ambiente virtual Python (`.venv`)
 
 O Ubuntu 24.04 bloqueia instalações de pacotes Python system-wide por padrão,
