@@ -170,8 +170,8 @@ deploy:
   services:
     - docker:24-dind
   variables:
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_HOST: tcp://docker:2375    # Porta sem TLS
+    DOCKER_TLS_CERTDIR: ""            # Desativa geração de certs no dind
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
   before_script:
