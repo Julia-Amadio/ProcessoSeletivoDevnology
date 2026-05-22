@@ -1,8 +1,11 @@
 # ProcessoSeletivoDevnology
 
 [![Pipeline Status](https://gitlab.com/Julia-Amadio/ProcessoSeletivoDevnology/badges/main/pipeline.svg)](https://gitlab.com/Julia-Amadio/ProcessoSeletivoDevnology/-/pipelines)
+[![Deploy](https://img.shields.io/badge/deploy-live-brightgreen)](http://100.25.46.122:5000/health)
 
 Projeto elaborado como desafio técnico para o Processo Seletivo do Programa Trainee Cloud & IA da Devnology. Demonstra a automatização completa do ciclo de vida de uma aplicação web, desde o build até o deploy, por meio de um pipeline CI/CD estruturado no GitLab.
+
+---
 
 ## Stack
 - **Python + Flask:** aplicação backend com endpoints de health check
@@ -13,6 +16,8 @@ Projeto elaborado como desafio técnico para o Processo Seletivo do Programa Tra
 - **pytest:** testes unitários
 - **bandit:** análise estática de segurança (SAST)
 - **gunicorn:** servidor WSGI de produção
+
+---
 
 ## Pipeline CI/CD
 O pipeline completo pode ser visualizado no repositório GitLab:
@@ -26,6 +31,23 @@ O pipeline completo pode ser visualizado no repositório GitLab:
 | `build` | Constrói a imagem Docker e faz push para o GitLab Container Registry |
 | `smoke-test` | Sobe o container da imagem buildada e valida o endpoint de health check |
 | `deploy` | Simula o deploy no Amazon ECS (executa apenas na branch `main`) |
+
+---
+
+## Deploy
+
+A aplicação está provisionada na AWS com infraestrutura definida via Terraform
+e acessível publicamente:
+
+| Endpoint | URL |
+|---|---|
+| Health check | http://100.25.46.122:5000/health |
+| Raiz | http://100.25.46.122:5000 |
+
+A infraestrutura (ECR, ECS Fargate, IAM, CloudWatch, Security Group) foi
+provisionada com `terraform apply` a partir da pasta `/terraform`.
+
+---
 
 ## Executando localmente
 
@@ -81,6 +103,8 @@ curl http://localhost:5000/health
     python app.py
     ```
 
+---
+
 ## Endpoints
 
 | Método | Rota | Descrição |
@@ -104,6 +128,8 @@ Exemplo de resposta do `/health`:
   "version": "1.0.0"
 }
 ```
+
+---
 
 ## Ferramentas de qualidade
 Essas ferramentas são executadas de forma automática no pipeline do GitLab toda vez que um push é feito. Localmente, elas podem ser utilizadas manualmente no terminal por meio da execução dos seguintes comandos:
@@ -141,6 +167,7 @@ sh healthcheck.sh http://localhost:5000/health
 
 O script retorna `exit 0` em sucesso e `exit 1` em falha, o que permite que ele seja usado em automações e scripts que dependem do código de saída.
 
+---
 
 ## Documentação adicional
 - [Decisões de arquitetura](docs/ARCHITECTURE.md)
