@@ -164,6 +164,7 @@ smoke-test:
 # -----------------------------------------------------------------------------
 deploy:
   stage: deploy
+  image: amazon/aws-cli:latest
   services:
     - docker:24-dind
   variables:
