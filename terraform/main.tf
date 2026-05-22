@@ -166,24 +166,3 @@ resource "aws_ecs_service" "this" {
     assign_public_ip = true
   }
 }
-
-# ================================================================================
-# OUTPUTS
-# Valores úteis exibidos após o terraform apply.
-# O IP público da task não é conhecido antes do deploy, mas a URL do ECR
-# é necessária para configurar o pipeline.
-# ================================================================================
-output "ecr_repository_url" {
-  description = "URL do repositório ECR. Destino do docker push no pipeline"
-  value       = aws_ecr_repository.this.repository_url
-}
-
-output "ecs_cluster_name" {
-  description = "Nome do cluster ECS"
-  value       = aws_ecs_cluster.this.name
-}
-
-output "ecs_service_name" {
-  description = "Nome do serviço ECS"
-  value       = aws_ecs_service.this.name
-}
