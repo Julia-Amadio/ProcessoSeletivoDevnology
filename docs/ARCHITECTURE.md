@@ -319,23 +319,27 @@ documentado aqui por ser ilustrativo sobre como diagnosticar problemas de
 compatibilidade de imagens em CI:
 
 * **Problema 1: conflito de biblioteca no Alpine**
+  
   A primeira abordagem instalou o `aws-cli` via `apk` na imagem `docker:24`
 (Alpine). O pipeline falhou com erro de símbolo não encontrado no `libexpat`.
 A imagem Alpine do Docker é minimalista e não possui todas as libs C que o
 `aws-cli` do `apk` espera.
 
 * **Problema 2: AWS CLI não encontrado após instalação manual**
+  
   A segunda abordagem instalou o AWS CLI v2 via instalador oficial. O CLI era
 instalado mas não estava no PATH no momento da execução, causando
 `aws: not found`.
 
 * **Problema 3: entrypoint bloqueando execução dos scripts**
+  
   A terceira abordagem trocou para a imagem `amazon/aws-cli`. O pipeline falhou
 porque essa imagem define `aws` como entrypoint — o GitLab Runner tentava
 executar `sh script.sh` mas o container recebia `aws sh`, que não existe.
 Fix: `entrypoint: [""]` na declaração da imagem.
 
 * **Problema 4: falha de TLS no dind**
+  
   Com o entrypoint corrigido, o `docker login` falhou com erro de TLS. A imagem
 `amazon/aws-cli` não monta os certificados gerados pelo dind, então o Docker
 CLI tentava conexão HTTPS sem os certs. Fix: desativar TLS no dind
