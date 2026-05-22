@@ -11,6 +11,11 @@ ProcessoSeletivoDevnology/
 ├── docs/
 │   ├── ARCHITECTURE.md   # este arquivo
 │   └── AI_USAGE.md       # documentação do uso de IA
+├── terraform/            # provisionamento da infraestrutura AWS
+│   ├── terraform.tf      # provider e versões
+│   ├── variables.tf      # variáveis reutilizáveis
+│   ├── main.tf           # recursos AWS
+│   └── outputs.tf        # valores exibidos após o apply
 ├── .dockerignore         # arquivos ignorados pelo Docker no build da imagem
 ├── .gitignore            # arquivos ignorados pelo Git
 ├── .gitlab-ci.yml        # pipeline de CI/CD do GitLab
@@ -186,7 +191,7 @@ instrui o GitLab a não executá-lo diretamente — ele só existe para ser herd
 via `extends`. O `before_script` do template (login no registry) é executado
 automaticamente antes do `script` de cada job filho.
 
-### Stage smoke-test
+### Stage `smoke-test`
 
 O stage `test` valida o código-fonte com pytest. O `smoke-test` vai além: sobe
 o container da imagem que acabou de ser buildada e valida que ela funciona de
@@ -195,3 +200,128 @@ fato como artefato, não apenas que o código passa nos testes unitários.
 Isso detecta problemas que só aparecem na imagem real: dependências faltando no
 `requirements.txt`, erro de configuração do gunicorn, porta não exposta
 corretamente.
+
+### Ordem de push das imagens
+
+O push para o ECR acontece no stage `deploy`, não no `build`. Isso é intencional:
+a imagem só chega ao registry de produção após ser validada pelo `smoke-test`.
+Se o push fosse no `build`, uma imagem quebrada poderia chegar ao ECR antes do
+pipeline barrá-la.
+
+```
+build       → push para GitLab Registry
+smoke-test  → valida a imagem do GitLab Registry
+deploy      → push para ECR + deploy no ECS
+```
+
+### Stage `deploy` (imagem base)
+
+O job de `deploy` usa `amazon/aws-cli` como imagem base em vez de herdar o
+`.docker-base`. O motivo é incompatibilidade do `aws-cli` com Alpine Linux
+(base da imagem `docker:24`). A `amazon/aws-cli` é Amazon Linux 2023 e tem o
+CLI correto nativamente, onde Docker CLI é instalado via `yum` sem conflito.
+
+Como imagem, services, variables e before_script são completamente diferentes do
+template, herdar via `extends` não acrescentaria nada.
+
+O TLS do dind foi desativado neste job (porta `2375`, `DOCKER_TLS_CERTDIR: ""`)
+por incompatibilidade entre a imagem `amazon/aws-cli` e o handshake TLS do dind.
+A comunicação é interna ao job, tornando o trade-off aceitável.
+
+---
+
+## Infraestrutura AWS (Terraform)
+
+O provisionamento usa Fargate, eliminando a necessidade de gerenciar servidores.
+A VPC padrão da conta é reutilizada para simplificar; em produção, criaria-se
+uma VPC dedicada com subnets públicas e privadas separadas.
+
+**Recursos provisionados:**
+
+| Recurso | Finalidade |
+|---|---|
+| ECR repository | Armazena as imagens Docker para o ECS |
+| IAM execution role | Permite ao Fargate puxar imagens do ECR e escrever logs |
+| CloudWatch log group | Recebe stdout/stderr do container (retenção de 7 dias) |
+| Security group | Libera entrada na porta 5000, saída livre |
+| ECS cluster | Agrupamento lógico dos serviços |
+| ECS task definition | Descreve o container: imagem, CPU, memória, porta, logs |
+| ECS service | Mantém a task em execução, substitui containers unhealthy |
+
+### Acesso público sem load balancer
+
+Em produção, um Application Load Balancer ficaria na frente do ECS. Para esta
+demonstração, `assign_public_ip = true` foi habilitado diretamente na task
+Fargate, onde o container recebe um IP público e fica acessível na porta 5000.
+Esta abordagem não é adequada para produção (o IP muda a cada redeploy), mas
+é suficiente para demonstrar o funcionamento.
+
+### Health check no ECS
+
+A task definition define um health check que espelha o do Dockerfile, mas no
+nível do orquestrador. O Dockerfile verifica se o processo está vivo; o ECS
+verifica se a task merece receber tráfego. São camadas complementares.
+
+### Variáveis de CI/CD necessárias
+
+Após o `terraform apply`, os outputs fornecem os valores para configurar as
+seguintes variáveis em **GitLab → Settings → CI/CD → Variables**:
+
+| Variável | Origem |
+|---|---|
+| `AWS_ACCESS_KEY_ID` | IAM user do pipeline |
+| `AWS_SECRET_ACCESS_KEY` | IAM user do pipeline |
+| `AWS_DEFAULT_REGION` | Definida manualmente |
+| `ECR_REPOSITORY_URL` | Output `ecr_repository_url` do `terraform apply` |
+
+---
+
+## Troubleshooting do stage de deploy
+
+O stage de deploy passou por quatro iterações até funcionar. O processo está
+documentado aqui por ser ilustrativo sobre como diagnosticar problemas de
+compatibilidade de imagens em CI:
+
+* **Problema 1: conflito de biblioteca no Alpine**
+
+  A primeira abordagem instalou o `aws-cli` via `apk` na imagem `docker:24`
+(Alpine). O pipeline falhou com erro de símbolo não encontrado no `libexpat`.
+A imagem Alpine do Docker é minimalista e não possui todas as libs C que o
+`aws-cli` do `apk` espera.
+
+* **Problema 2: AWS CLI não encontrado após instalação manual**
+
+  A segunda abordagem instalou o AWS CLI v2 via instalador oficial. O CLI era
+instalado mas não estava no PATH no momento da execução, causando
+`aws: not found`.
+
+* **Problema 3: entrypoint bloqueando execução dos scripts**
+
+  A terceira abordagem trocou para a imagem `amazon/aws-cli`. O pipeline falhou
+porque essa imagem define `aws` como entrypoint — o GitLab Runner tentava
+executar `sh script.sh` mas o container recebia `aws sh`, que não existe.
+Fix: `entrypoint: [""]` na declaração da imagem.
+
+* **Problema 4 — Falha de TLS no dind**
+
+  Com o entrypoint corrigido, o `docker login` falhou com erro de TLS. A imagem
+`amazon/aws-cli` não monta os certificados gerados pelo dind, então o Docker
+CLI tentava conexão HTTPS sem os certs. Fix: desativar TLS no dind
+(`DOCKER_TLS_CERTDIR: ""`, porta `2375`).
+
+---
+
+## O que eu faria com mais tempo
+
+- **Testes de integração:** os testes atuais são unitários e usam o cliente de
+  teste do Flask. Adicionaria testes que sobem a aplicação real e fazem
+  requisições HTTP de verdade.
+- **VPC dedicada:** em produção, criaria VPC com subnets públicas e privadas
+  separadas, colocando o container na subnet privada e o ALB na pública.
+- **Application Load Balancer:** eliminaria o IP público direto na task,
+  tornando o endpoint estável entre redeploys.
+- **Versionamento semântico automatizado:** a `version` no endpoint `/health`
+  está hardcoded. Automatizaria via git tags e injeção como variável de ambiente
+  no pipeline.
+- **Rollback automatizado:** adicionaria lógica de rollback caso o
+  `aws ecs wait services-stable` retorne falha após o deploy.
