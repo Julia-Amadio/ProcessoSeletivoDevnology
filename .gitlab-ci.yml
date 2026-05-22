@@ -164,7 +164,9 @@ smoke-test:
 # -----------------------------------------------------------------------------
 deploy:
   stage: deploy
-  image: amazon/aws-cli:latest
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint: [""]  # Desativa o entrypoint padrão "aws"
   services:
     - docker:24-dind
   variables:
