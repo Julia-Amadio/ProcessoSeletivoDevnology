@@ -1,3 +1,9 @@
+# ================================================================================
+# VARIABLES
+# Parâmetros configuráveis do projeto. Centralizar variáveis aqui evita
+# valores hardcoded espalhados pelo main.tf e facilita reutilização do
+# módulo em diferentes ambientes (ex: staging vs production).
+# ================================================================================
 variable "aws_region" {
   description = "Região AWS onde os recursos serão provisionados"
   type        = string
