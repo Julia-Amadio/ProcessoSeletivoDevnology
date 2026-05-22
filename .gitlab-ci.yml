@@ -152,28 +152,35 @@ smoke-test:
 
 # -----------------------------------------------------------------------------
 # STAGE: deploy
-# Simula o deploy no Amazon ECS.
-# Em produção, esses comandos serão executados de verdade via AWS CLI.
+# Faz o deploy do container no Amazon ECS.
+# 
+# O ECR Repository é criado por meio do 'terraform apply'. As credenciais do
+# IAM Execution Role, região do provisionamento e a URL do repositório
+# criado são injetados no pipeline por meio das variáveis de CI/CD do projeto
+# no GitLab.
+#
 # O job só roda na branch main; alterações em outras branches
 # passam por lint, test e build, mas não disparam deploy.
 # -----------------------------------------------------------------------------
 deploy:
+  extends: .docker-base
   stage: deploy
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
   script:
-    - echo "=== Simulação de deploy no Amazon ECS ==="
-    - echo "Imagem a ser deployada --> $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
-    - echo ""
-    - echo "Em produção, os comandos seriam:"
-    - echo "  1. aws ecs update-service \\"
-    - echo "       --cluster devnology-cluster \\"
-    - echo "       --service devnology-api \\"
-    - echo "       --force-new-deployment"
-    - echo "  2. aws ecs wait services-stable \\"
-    - echo "       --cluster devnology-cluster \\"
-    - echo "       --services devnology-api"
-    - echo ""
-    - echo "=== Deploy simulado com sucesso ==="
+    # Instala AWS CLI para autenticar no ECR
+    - apk add --no-cache aws-cli
+    # Login no ECR. Diferente do GitLab Registry, o ECR não usa usuário/senha:
+    # o AWS CLI gera um token temporário via IAM e o passa direto ao docker login.
+    - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URL
+    # Puxa do GitLab Registry a imagem já validada pelo smoke-test
+    - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    # Retagueia para o ECR e faz push
+    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $ECR_REPOSITORY_URL:$CI_COMMIT_SHORT_SHA
+    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $ECR_REPOSITORY_URL:latest
+    - docker push $ECR_REPOSITORY_URL:$CI_COMMIT_SHORT_SHA
+    - docker push $ECR_REPOSITORY_URL:latest
+    # Força o ECS a puxar a nova imagem e reiniciar o serviço
+    - aws ecs update-service --cluster devnology-api-cluster --service devnology-api-service --force-new-deployment
   environment:
     name: production
