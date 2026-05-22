@@ -10,19 +10,39 @@ necessidade de cada decisão.
 
 ## Como estruturei os prompts
 
-- Para tecnologias com as quais nunca tive contato, o primeiro passo
-foi pedir uma descrição superficial do funcionamento — o suficiente
-para conseguir navegar pela documentação oficial e exemplos online.
+O fluxo de trabalho com a IA seguiu um padrão consistente ao longo do projeto:
 
-- Com esse contexto, construí protótipos do código à mão, baseando-me
-na documentação e em experiências passadas com ferramentas similares.
-Quando uma decisão de arquitetura era importante mas eu não sabia
-implementar, o protótipo vinha com comentários explicitando isso.
+**1. Contextualização antes de qualquer código**
 
-- Somente depois, a IA era consultada para refinamento do protótipo.
+Ao lidar com uma tecnologia desconhecida, o primeiro passo foi fornecer contexto
+à IA: para que a ferramenta seria usada e, quando possível, uma analogia com
+algo que eu já conhecia em outra linguagem ou contexto. Isso orientou as
+explicações para o nível certo, sem partir do zero absoluto.
 
-- Em casos de erro, o objetivo era interpretar os logs de forma
-independente, recorrendo à IA apenas quando ficava realmente presa.
+**2. Pesquisa independente em paralelo**
+
+Com a explicação inicial em mãos, recorri à documentação oficial e a exemplos
+disponíveis online para validar o que foi explicado e construir minha própria
+compreensão da ferramenta.
+
+**3. Construção de rascunhos próprios**
+
+Com base na documentação e em experiências anteriores, construí rascunhos do
+código para compreender a lógica e a estrutura semântica dos arquivos antes de
+qualquer refinamento. Quando uma decisão de arquitetura parecia relevante mas eu
+não sabia como implementá-la, registrava isso diretamente no rascunho como
+comentário e esse comentário virava parte do prompt.
+
+**4. Refinamento assistido**
+
+Somente após entender a lógica envolvida, o rascunho era submetido à IA para
+correções e adições. O papel da IA nessa etapa era o de revisor, não de autor.
+
+**5. Interpretação independente de erros**
+
+Diante de outputs de erro, o objetivo foi interpretar os logs de forma autônoma.
+A IA era consultada apenas quando eu ficava genuinamente travada e, mesmo
+nesses casos, o foco era entender a causa do erro, não apenas receber o fix.
 
 ## Exemplo: prompt abordando implementação inicial do Dockerfile
 ```
