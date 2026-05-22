@@ -163,17 +163,18 @@ smoke-test:
 # passam por lint, test e build, mas não disparam deploy.
 # -----------------------------------------------------------------------------
 deploy:
-  extends: .docker-base
   stage: deploy
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
+  before_script:
+    - yum install -y docker
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    # Instala AWS CLI v2 para autenticar no ECR
-    # Faz isso via instalador oficial (evita conflito de libs do apk)
-    - apk add --no-cache curl unzip
-    - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-    - unzip -q awscliv2.zip
-    - ./aws/install
     # Login no ECR. Diferente do GitLab Registry, o ECR não usa usuário/senha:
     # o AWS CLI gera um token temporário via IAM e o passa direto ao docker login.
     - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URL
