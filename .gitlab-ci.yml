@@ -2,6 +2,21 @@
 # Jobs que precisam do Docker sobrescrevem isso.
 image: python:3.12-slim
 
+workflow:
+  rules:
+    # Não roda pipeline se a única mudança for em arquivos de documentação
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        - app.py
+        - test_app.py
+        - requirements*.txt
+        - Dockerfile
+        - healthcheck.sh
+        - .gitlab-ci.yml
+        - terraform/*
+      when: always
+    - when: never
+
 # Declara a ordem de execução dos stages.
 # Se um stage falhar, os seguintes não executam.
 stages:
