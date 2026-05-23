@@ -16,6 +16,9 @@ Projeto elaborado como desafio técnico para o Processo Seletivo do Programa Tra
 - **pytest:** testes unitários
 - **bandit:** análise estática de segurança (SAST)
 - **gunicorn:** servidor WSGI de produção
+- **Terraform:** provisionamento da infraestrutura AWS como código
+- **Amazon ECS Fargate:** orquestração e execução dos containers em produção
+- **Amazon ECR:** registry de imagens Docker
 
 ---
 
