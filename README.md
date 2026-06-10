@@ -1,7 +1,7 @@
 # ProcessoSeletivoDevnology
 
 [![Pipeline Status](https://gitlab.com/Julia-Amadio/ProcessoSeletivoDevnology/badges/main/pipeline.svg)](https://gitlab.com/Julia-Amadio/ProcessoSeletivoDevnology/-/pipelines)
-[![Deploy](https://img.shields.io/badge/deploy-live-brightgreen)](http://100.25.46.122:5000/health)
+[![Deploy](https://img.shields.io/badge/deploy-live-brightgreen)](http://18.206.46.210:5000/health)
 
 Projeto elaborado como desafio técnico para o Processo Seletivo do Programa Trainee Cloud & IA da Devnology. Demonstra a automatização completa do ciclo de vida de uma aplicação web, desde o build até o deploy, por meio de um pipeline CI/CD estruturado no GitLab.
 
@@ -44,8 +44,8 @@ e acessível publicamente:
 
 | Endpoint | URL |
 |---|---|
-| Health check | http://100.25.46.122:5000/health |
-| Raiz | http://100.25.46.122:5000 |
+| Health check | http://18.206.46.210:5000/health |
+| Raiz | http://18.206.46.210:5000 |
 
 A infraestrutura (ECR, ECS Fargate, IAM, CloudWatch, Security Group) foi
 provisionada com `terraform apply` a partir da pasta `/terraform`.
