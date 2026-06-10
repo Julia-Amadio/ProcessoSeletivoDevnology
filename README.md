@@ -160,11 +160,11 @@ bandit app.py test_app.py -ll
 Com a aplicação rodando (via Docker ou diretamente), execute em outro terminal:
 
 ```bash
-# verifica o endpoint padrão (localhost:5000)
+# verifica o endpoint /health (localhost:5000/health)
 sh healthcheck.sh
 
-# ou especifique uma URL diferente
-sh healthcheck.sh http://localhost:5000/health
+# ou especifique a URL do endpoint da raiz
+sh healthcheck.sh http://localhost:5000/
 ```
 **Resultado esperado:** `[O] API healthy (http://localhost:5000/health)`. Se a API não responder, retorna `[X] API unhealthy - HTTP 000 (http://localhost:5000/health)`.
 
