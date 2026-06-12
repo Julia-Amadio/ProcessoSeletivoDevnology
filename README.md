@@ -1,7 +1,6 @@
 # ProcessoSeletivoDevnology
 
 [![Pipeline Status](https://gitlab.com/Julia-Amadio/ProcessoSeletivoDevnology/badges/main/pipeline.svg)](https://gitlab.com/Julia-Amadio/ProcessoSeletivoDevnology/-/pipelines)
-[![Deploy](https://img.shields.io/badge/deploy-live-brightgreen)](http://18.206.46.210:5000/health)
 
 Projeto elaborado como desafio técnico para o Processo Seletivo do Programa Trainee Cloud & IA da Devnology. Demonstra a automatização completa do ciclo de vida de uma aplicação web, desde o build até o deploy, por meio de um pipeline CI/CD estruturado no GitLab.
 
@@ -39,16 +38,16 @@ O pipeline completo pode ser visualizado no repositório GitLab:
 
 ## Deploy
 
-A aplicação está provisionada na AWS com infraestrutura definida via Terraform
-e acessível publicamente:
+A infraestrutura (ECR, ECS Fargate, IAM, CloudWatch, Security Group) pode ser
+provisionada com `terraform apply` a partir da pasta `/terraform`. `terraform apply`
+deve ser executado antes do disparo do pipeline.
 
-| Endpoint | URL |
-|---|---|
-| Health check | http://18.206.46.210:5000/health |
-| Raiz | http://18.206.46.210:5000 |
+O provisionamento usa Fargate, eliminando a necessidade de gerenciar servidores.
+A VPC padrão da conta é reutilizada como meio de simplificar a demonstração; em produção, 
+é necessária a criação de uma VPC dedicada com subnets públicas e privadas separadas.
 
-A infraestrutura (ECR, ECS Fargate, IAM, CloudWatch, Security Group) foi
-provisionada com `terraform apply` a partir da pasta `/terraform`.
+Mais detalhes sobre as escolhas de arquitetura relacionadas à simulação do deploy
+foram documentados em [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
